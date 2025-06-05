@@ -1,7 +1,8 @@
-use rcgen::{generate_simple_self_signed, CertifiedKey};
+use rcgen::{generate_simple_self_signed, CertifiedKey, CertificateParams, Certificate, KeyPair};
 use std::env;
+use std::fs;
 use std::fs::File;
-use std::io::Write;
+use std::io::{Read, Write}; 
 
 fn new() -> std::io::Result<()> {
     // Generate a certificate that's valid for "localhost" and "hello.world.example"
@@ -18,9 +19,21 @@ fn new() -> std::io::Result<()> {
     Ok(result)
 }
 
-fn server(args: Vec<String>) -> std::io::Result<()> {
-    Ok(())
+fn server(subject_alt_names: impl Into<Vec<String>>) -> std::io::Result<()> {
+    let c = fs::read_to_string("ca.pem")?;
+    let k = fs::read_to_string("ca.key")?;
+
+    let ca = CertificateParams::from_ca_cert_pem(&c).unwrap().new(subject_alt_names);
+    let key = KeyPair::from_pem(&k).unwrap();
+
+    let server_key = KeyPair::generate().unwrap();
+    let cert = CertificateParams::new(subject_alt_names).unwrap().
+	signed_by(&server_key, &ca, &key);
+
+    let s = File::create("{subject_alt_names[0]}.pem");
+    Ok(s.write_all(&cert.pem().into_bytes()))
 }
+
 fn client(args: Vec<String>) -> std::io::Result<()> {
     Ok(())
 }
