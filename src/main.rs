@@ -19,19 +19,18 @@ fn new() -> std::io::Result<()> {
     Ok(result)
 }
 
-fn server(subject_alt_names: impl Into<Vec<String>>) -> std::io::Result<()> {
+fn server(subject_alt_names: Vec<String>) -> std::io::Result<()> {
     let c = fs::read_to_string("ca.pem")?;
     let k = fs::read_to_string("ca.key")?;
 
-    let ca = CertificateParams::from_ca_cert_pem(&c).unwrap().new(subject_alt_names);
+    let ca = CertificateParams::from_ca_cert_pem(&c).unwrap();
     let key = KeyPair::from_pem(&k).unwrap();
 
     let server_key = KeyPair::generate().unwrap();
-    let cert = CertificateParams::new(subject_alt_names).unwrap().
-	signed_by(&server_key, &ca, &key);
+    let cert = CertificateParams::new(subject_alt_names.clone()).unwrap().self_signed(&key);
 
-    let s = File::create("{subject_alt_names[0]}.pem");
-    Ok(s.write_all(&cert.pem().into_bytes()))
+    let s = File::create(format!("{}.pem", subject_alt_names.clone()[2]));
+    Ok(s.unwrap().write_all(&cert.unwrap().pem().into_bytes())?)
 }
 
 fn client(args: Vec<String>) -> std::io::Result<()> {
