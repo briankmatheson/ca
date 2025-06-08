@@ -28,9 +28,12 @@ fn server(subject_alt_names: Vec<String>) -> std::io::Result<()> {
 
     let server_key = KeyPair::generate().unwrap();
     let cert = CertificateParams::new(subject_alt_names.clone()).unwrap().self_signed(&key);
-
-    let s = File::create(format!("{}.pem", subject_alt_names.clone()[2]));
-    Ok(s.unwrap().write_all(&cert.unwrap().pem().into_bytes())?)
+    let file_name = subject_alt_names[2].clone();
+    let s = File::create(format!("{}.pem", &file_name));
+    let sk = File::create(format!("{}.key", &file_name));
+    s.unwrap().write_all(&cert.unwrap().pem().into_bytes())?;
+    sk.unwrap().write_all(&key.serialize_pem().into_bytes())?;
+    Ok(())
 }
 
 fn client(args: Vec<String>) -> std::io::Result<()> {
@@ -47,7 +50,6 @@ fn usage() -> std::io::Result<()> {
 fn main() -> std::io::Result<()> {
     let args: Vec<String> = env::args().collect();
     let command = &args[1];
-    println!("{command}");
     
     match command.as_str() {
 	"new" => new(),
