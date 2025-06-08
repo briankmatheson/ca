@@ -1,8 +1,9 @@
-use rcgen::{generate_simple_self_signed, CertifiedKey, CertificateParams, Certificate, KeyPair};
+use rcgen::{generate_simple_self_signed, CertifiedKey, CertificateParams, KeyPair};
 use std::env;
 use std::fs;
 use std::fs::File;
-use std::io::{Read, Write}; 
+use std::io::Write; 
+use std::process;
 
 fn new() -> std::io::Result<()> {
     // Generate a certificate that's valid for "localhost" and "hello.world.example"
@@ -23,28 +24,29 @@ fn server(subject_alt_names: Vec<String>) -> std::io::Result<()> {
     let c = fs::read_to_string("ca.pem")?;
     let k = fs::read_to_string("ca.key")?;
 
-    let ca = CertificateParams::from_ca_cert_pem(&c).unwrap();
-    let key = KeyPair::from_pem(&k).unwrap();
+    let ca_key = KeyPair::from_pem(&k).unwrap();
+    let ca = CertificateParams::from_ca_cert_pem(&c).unwrap().self_signed(&ca_key).unwrap();
 
     let server_key = KeyPair::generate().unwrap();
-    let cert = CertificateParams::new(subject_alt_names.clone()).unwrap().self_signed(&key);
+    let cert = CertificateParams::new(subject_alt_names.clone()).unwrap().
+	signed_by(&server_key, &ca, &ca_key);
     let file_name = subject_alt_names[2].clone();
     let s = File::create(format!("{}.pem", &file_name));
     let sk = File::create(format!("{}.key", &file_name));
     s.unwrap().write_all(&cert.unwrap().pem().into_bytes())?;
-    sk.unwrap().write_all(&key.serialize_pem().into_bytes())?;
+    sk.unwrap().write_all(&server_key.serialize_pem().into_bytes())?;
     Ok(())
 }
 
-fn client(args: Vec<String>) -> std::io::Result<()> {
+fn client(_args: Vec<String>) -> std::io::Result<()> {
     Ok(())
 }
-fn sign(args: Vec<String>) -> std::io::Result<()> {
+fn sign(_args: Vec<String>) -> std::io::Result<()> {
     Ok(())
 }
 fn usage() -> std::io::Result<()> {
     println!("Usage: ca new|server NAME|client NAME|sign FILENAME");
-    Ok(())
+    std::process::exit(0);
 }
 
 fn main() -> std::io::Result<()> {
