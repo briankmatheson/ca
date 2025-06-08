@@ -3,7 +3,6 @@ use std::env;
 use std::fs;
 use std::fs::File;
 use std::io::Write; 
-use std::process;
 
 fn new() -> std::io::Result<()> {
     // Generate a certificate that's valid for "localhost" and "hello.world.example"
