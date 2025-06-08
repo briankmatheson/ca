@@ -11,29 +11,30 @@ fn new() -> std::io::Result<()> {
     
     let CertifiedKey { cert, key_pair } = generate_simple_self_signed(subject_alt_names).unwrap();
     
-    let mut c = File::create("ca.pem")?;
     let mut k = File::create("ca.key")?;
+    let mut c = File::create("ca.pem")?;
 
-    let result = c.write_all(&cert.pem().into_bytes())?;
     k.write_all(&key_pair.serialize_pem().into_bytes())?;
-    Ok(result)
+    c.write_all(&cert.pem().into_bytes())?;
+    Ok(())
 }
 
 fn server(subject_alt_names: Vec<String>) -> std::io::Result<()> {
-    let c = fs::read_to_string("ca.pem")?;
-    let k = fs::read_to_string("ca.key")?;
+    let ca_key_pem = fs::read_to_string("ca.key")?;
+    let ca_pem = fs::read_to_string("ca.pem")?;
 
-    let ca_key = KeyPair::from_pem(&k).unwrap();
-    let ca = CertificateParams::from_ca_cert_pem(&c).unwrap().self_signed(&ca_key).unwrap();
+    let ca_key = KeyPair::from_pem(&ca_key_pem).unwrap();
+    let ca = CertificateParams::from_ca_cert_pem(&ca_pem).unwrap().
+	self_signed(&ca_key).unwrap();
 
     let server_key = KeyPair::generate().unwrap();
     let cert = CertificateParams::new(subject_alt_names.clone()).unwrap().
-	signed_by(&server_key, &ca, &ca_key);
+	signed_by(&server_key, &ca, &ca_key).unwrap();
     let file_name = subject_alt_names[2].clone();
-    let s = File::create(format!("{}.pem", &file_name));
-    let sk = File::create(format!("{}.key", &file_name));
-    s.unwrap().write_all(&cert.unwrap().pem().into_bytes())?;
-    sk.unwrap().write_all(&server_key.serialize_pem().into_bytes())?;
+    let mut s = File::create(format!("{}.pem", &file_name)).unwrap();
+    let mut sk = File::create(format!("{}.key", &file_name)).unwrap();
+    s.write_all(&cert.pem().into_bytes())?;
+    sk.write_all(&server_key.serialize_pem().into_bytes())?;
     Ok(())
 }
 
@@ -50,6 +51,9 @@ fn usage() -> std::io::Result<()> {
 
 fn main() -> std::io::Result<()> {
     let args: Vec<String> = env::args().collect();
+    if args.len() == 1 {
+	let _ = usage();
+    }
     let command = &args[1];
     
     match command.as_str() {
