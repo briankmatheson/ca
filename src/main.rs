@@ -5,8 +5,6 @@ use std::fs::File;
 use std::io::Write;
 
 fn new() -> std::io::Result<()> {
-    // Generate a certificate that's valid for "localhost" and "hello.world.example"
-    
     let subject_alt_names = vec!["CA".to_string()];
     let key = KeyPair::generate().unwrap();
     let mut cert = CertificateParams::new(subject_alt_names.clone()).unwrap();
@@ -34,13 +32,18 @@ fn server(subject_alt_names: &Vec<String>) -> std::io::Result<()> {
     let ca = CertificateParams::from_ca_cert_pem(&ca_pem).unwrap().
 	self_signed(&ca_key).unwrap();
 
+    let mut dn = DistinguishedName::new();
+    dn.push(DnType::CommonName, DnValue::PrintableString(subject_alt_names[0].clone().try_into().unwrap()));
+
     let server_key = KeyPair::generate().unwrap();
-    let cert = CertificateParams::new(subject_alt_names.clone()).unwrap().
-	signed_by(&server_key, &ca, &ca_key).unwrap();
+    
+    let mut cert = CertificateParams::new(subject_alt_names.clone()).unwrap();
+    cert.distinguished_name = dn.clone();
+    
     let file_name = subject_alt_names[0].clone();
     let mut s = File::create(format!("{}.pem", &file_name)).unwrap();
     let mut sk = File::create(format!("{}.key", &file_name)).unwrap();
-    s.write_all(&cert.pem().into_bytes())?;
+    s.write_all(&cert.signed_by(&server_key, &ca, &ca_key).unwrap().pem().into_bytes())?;
     sk.write_all(&server_key.serialize_pem().into_bytes())?;
     Ok(())
 }
